@@ -66,6 +66,8 @@ static bool epd_write_command(epd_device_t* device, uint8_t command);
 static bool epd_write_data(epd_device_t* device, const uint8_t* data, size_t len);
 static void epd_init_full(epd_device_t* device, uint8_t em);
 static void epd_init_part(epd_device_t* device, uint8_t em);
+static int16_t epd_height(epd_device_t* device);
+static int16_t epd_width(epd_device_t* device);
 static void epd_init_display(epd_device_t* device, uint8_t em);
 static void epd_update_full(epd_device_t* device);
 static void epd_update_part(epd_device_t* device);
@@ -85,7 +87,7 @@ void epd_init(epd_device_t* device) {
     device->buffer = heap_caps_malloc(EPD_BUFFER_SIZE, MALLOC_CAP_DMA);
     device->text_wrap = 0;
     device->font_line_space = 0;
-    device->font_transparent = 0;
+    // device->font_transparent = 0;
     device->orientation = epd_orientation_landscape_e;
 
 	device->font.font = NULL;
@@ -94,6 +96,8 @@ void epd_init(epd_device_t* device) {
     device->disp_win.y1 = 0;
     device->disp_win.x2 = EPD_DISPLAY_WIDTH - 1;
     device->disp_win.y2 = EPD_DISPLAY_HEIGHT - 1;
+    // device->disp_win.x2 = EPD_DISPLAY_HEIGHT - 1;
+    // device->disp_win.y2 = EPD_DISPLAY_WIDTH - 1;
 
     // SPI.
     const spi_bus_config_t spiConfig = {
@@ -139,15 +143,28 @@ void epd_init(epd_device_t* device) {
     epd_fill_screen(device, EPD_WHITE);
 }
 
-bool epd_reset(epd_device_t* device) {
+void epd_set_orientation(epd_device_t* device, epd_orientation_t orientation) {
+    device->orientation = orientation;
+
+    if(device->orientation == epd_orientation_landscape_e) {
+        device->disp_win.x2 = EPD_DISPLAY_WIDTH - 1;
+        device->disp_win.y2 = EPD_DISPLAY_HEIGHT - 1;
+    } else {
+        device->disp_win.x2 = EPD_DISPLAY_HEIGHT - 1;
+        device->disp_win.y2 = EPD_DISPLAY_WIDTH - 1;
+    }
+}
+
+void epd_reset(epd_device_t* device) {
     ESP_ERROR_CHECK(gpio_set_level(RSTPin, 0));
     vTaskDelay(pdMS_TO_TICKS(10));
     ESP_ERROR_CHECK(gpio_set_level(RSTPin, 1));
 	for (int n=0; n<50; n++) {
 		vTaskDelay(pdMS_TO_TICKS(10));
-		if (gpio_get_level(BUSYPin) == 0) break;
+		if (gpio_get_level(BUSYPin) == 0) {
+            break;
+        }
 	}
-    return true;
 }
 
 void epd_fill_screen(epd_device_t* device, uint16_t color) {
@@ -253,11 +270,29 @@ void epd_update_window(epd_device_t* device, uint16_t x, uint16_t y, uint16_t w,
 //   delay(GxGDEH0213B73_PU_DELAY);
 }
 
+// void epd_draw_bitmap(epd_device_t* device, const uint8_t *bitmap, uint32_t size, int16_t mode) {
+//     epd_init_full(device, 0x03);
+//     for (uint8_t command = 0x24; true; command = 0x26) { // leave both controller buffers equal
+//         epd_write_command(device, command);
+//         for (uint32_t i = 0; i < EPD_DISPLAY_WIDTH * (EPD_DISPLAY_HEIGHT/8); i++) {
+//             uint8_t data = 0xff; // white is 0xFF on device
+//             if (i < size) {
+//                 data = EPD_PGM_READ_BYTE(&bitmap[i]);
+//                 // if (mode & bm_invert) data = ~data;
+//             }
+//             epd_write_data(device, &data, 1);
+//         }
+//         if (command == 0x26) break;
+//     }
+//     epd_update_full(device);
+//     epd_power_off(device);
+// }
+
 void epd_draw_bitmap(epd_device_t* device, const uint8_t *bitmap, uint32_t size, int16_t mode) {
     epd_init_full(device, 0x03);
     for (uint8_t command = 0x24; true; command = 0x26) { // leave both controller buffers equal
         epd_write_command(device, command);
-        for (uint32_t i = 0; i < EPD_DISPLAY_WIDTH * (EPD_DISPLAY_HEIGHT/8); i++) {
+        for (uint32_t i = 0; i < EPD_X_PIXELS * (EPD_Y_PIXELS/8); i++) {
             uint8_t data = 0xff; // white is 0xFF on device
             if (i < size) {
                 data = EPD_PGM_READ_BYTE(&bitmap[i]);
@@ -265,7 +300,9 @@ void epd_draw_bitmap(epd_device_t* device, const uint8_t *bitmap, uint32_t size,
             }
             epd_write_data(device, &data, 1);
         }
-        if (command == 0x26) break;
+        if (command == 0x26) {
+            break;
+        }
     }
     epd_update_full(device);
     epd_power_off(device);
@@ -273,6 +310,12 @@ void epd_draw_bitmap(epd_device_t* device, const uint8_t *bitmap, uint32_t size,
 
 void epd_draw_pixel(epd_device_t* device, int16_t x, int16_t y, uint16_t color) {
     // if ((x < 0) || (x >= width()) || (y < 0) || (y >= height())) return;
+    // if (device == NULL || x < 0 || x >= epd_width(device) || y < 0 || y >= epd_height(device)) {
+    //     return;
+    // }
+    if(device == NULL) {
+        return;
+    }
 
     switch(device->orientation) {
         case epd_orientation_landscape_e:
@@ -283,6 +326,10 @@ void epd_draw_pixel(epd_device_t* device, int16_t x, int16_t y, uint16_t color) 
             break;
     }
 
+    // if (x < 0 || x >= device->disp_win.x2 || y < 0 || y >= device->disp_win.y2) {
+    //     return;
+    // }
+
     uint16_t i = x / 8 + y * EPD_X_PIXELS / 8;
 
     if (!color) {
@@ -290,6 +337,30 @@ void epd_draw_pixel(epd_device_t* device, int16_t x, int16_t y, uint16_t color) 
     } else {
         device->buffer[i] = (device->buffer[i] & (0xff ^ (1 << (7 - x % 8))));
     }
+}
+
+static int16_t epd_width(epd_device_t* device) {
+    if(device == NULL) {
+        return 0;
+    }
+
+    if(device->orientation == epd_orientation_portrait_e) {
+        return EPD_X_PIXELS;
+    }
+
+    return EPD_Y_PIXELS;
+}
+
+static int16_t epd_height(epd_device_t* device) {
+    if(device == NULL) {
+        return 0;
+    }
+
+    if(device->orientation == epd_orientation_portrait_e) {
+        return EPD_Y_PIXELS;
+    }
+
+    return EPD_X_PIXELS;
 }
 
 static void epd_init_display(epd_device_t* device, uint8_t em) {

@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+#include <stdint.h>
 #include "epd.h"
 
 // === Special coordinates constants ===
@@ -22,6 +23,7 @@ void epd_set_font(epd_device_t* device, epd_font_name_t font);
 int epd_get_font_height(epd_device_t* device);
 int epd_get_string_width(epd_device_t* device, char* str);
 void epd_print(epd_device_t* device, const char *st, int x, int y);
+void epd_draw_line(epd_device_t* device, int16_t x0, int16_t y0, int16_t x1, int16_t y1, color_t color);
 
 #ifdef __cplusplus
 }

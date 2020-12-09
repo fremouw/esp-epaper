@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include <driver/spi_master.h>
+// #include "epd_font.h"
 
 #define xDot 122
 #define yDot 250
@@ -33,19 +34,12 @@ extern "C" {
 #define EPD_BLACK 0x0000
 #define EPD_WHITE 0xffff
 
-typedef uint8_t color_t;
-
 typedef enum {
     epd_orientation_landscape_e = 0,
     epd_orientation_portrait_e = 1,
 } epd_orientation_t;
 
-typedef struct {
-	uint16_t x1;
-	uint16_t y1;
-	uint16_t x2;
-	uint16_t y2;
-} epd_disp_win_t;
+typedef uint8_t color_t;
 
 typedef struct {
       uint8_t char_code;
@@ -65,9 +59,15 @@ typedef struct {
 	uint16_t numchars;
     uint16_t size;
 	uint8_t max_x_size;
-    // uint8_t bitmap;
 	color_t color;
 } epd_font_t;
+
+typedef struct {
+	uint16_t x1;
+	uint16_t y1;
+	uint16_t x2;
+	uint16_t y2;
+} epd_disp_win_t;
 
 typedef struct {
     uint8_t* buffer;
@@ -76,14 +76,15 @@ typedef struct {
     epd_font_t font;
     epd_prop_font font_char;
     uint8_t font_line_space;
-    uint8_t	font_transparent;
+    // uint8_t	font_transparent;
     uint8_t	text_wrap;
     epd_disp_win_t disp_win;
     epd_orientation_t orientation;
 } epd_device_t;
 
 void epd_init(epd_device_t* device);
-bool epd_reset(epd_device_t* device);
+void epd_set_orientation(epd_device_t* device, epd_orientation_t orientation);
+void epd_reset(epd_device_t* device);
 void epd_fill_screen(epd_device_t* device, uint16_t color);
 void epd_power_on(epd_device_t* device);
 void epd_power_off(epd_device_t* device);

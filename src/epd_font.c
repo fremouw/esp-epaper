@@ -12,12 +12,10 @@ extern uint8_t tft_DejavuSansBold42[];
 static const char TAG[] = "epd";
 
 static const color_t epd_fg_color = 15;
-static const color_t epd_bg_color = 0;
+// static const color_t epd_bg_color = 0;
 
 // 
 static void epd_get_max_width_height(epd_device_t* device);
-// static int epd_get_string_width(epd_device_t* device, char* str);
-
 static uint8_t epd_get_char_ptr(epd_device_t* device, uint8_t c);
 static int epd_print_proportional_char(epd_device_t* device, int x, int y);
 static void epd_fill_rect(epd_device_t* device, int16_t x, int16_t y, int16_t w, int16_t h, color_t color);
@@ -30,7 +28,7 @@ static void epd_bar_vert(epd_device_t* device, int16_t x, int16_t y, int16_t w, 
 static void epd_bar_hor(epd_device_t* device, int16_t x, int16_t y, int16_t w, int16_t l, color_t color, color_t outline);
 static void epd_fill_triangle(epd_device_t* device, uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, color_t color);
 static void epd_draw_triangle(epd_device_t* device, uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, color_t color);
-static void epd_draw_line(epd_device_t* device, int16_t x0, int16_t y0, int16_t x1, int16_t y1, color_t color);
+// static void epd_draw_line(epd_device_t* device, int16_t x0, int16_t y0, int16_t x1, int16_t y1, color_t color);
 
 void epd_set_font(epd_device_t* device, epd_font_name_t font) {
     switch(font) {
@@ -44,9 +42,13 @@ void epd_set_font(epd_device_t* device, epd_font_name_t font) {
             device->font.font = tft_DejavuSans12;
     }
 
-    // device->font.bitmap = 1;
     device->font.x_size = device->font.font[0];
     device->font.y_size = device->font.font[1];
+    device->font.offset = 0;
+    device->font.numchars = 0;
+    device->font.size = 0;
+    device->font.max_x_size = 0;
+    device->font.color = 0;
 
     if (device->font.x_size > 0) {
         device->font.offset = device->font.font[2];
@@ -111,7 +113,7 @@ void epd_print(epd_device_t* device, const char *st, int x, int y) {
 	if (y < device->disp_win.y1) {
         y = device->disp_win.y1;
     }
-	if ((x > device->disp_win.x2) || (y > device->disp_win.y2)) {
+	if (x > device->disp_win.x2 || y > device->disp_win.y2) {
         return;
     }
 
@@ -140,9 +142,9 @@ void epd_print(epd_device_t* device, const char *st, int x, int y) {
 		ch = st[i]; // get string character
 
 		if (ch == 0x0d) { // === '\r', erase to eol ====
-			if ((!device->font_transparent)) {
-                epd_fill_rect(device, _x, _y,  device->disp_win.x2+1- _x, tmph, epd_bg_color);
-            }
+			// if ((!device->font_transparent)) {
+            //     epd_fill_rect(device, _x, _y,  device->disp_win.x2+1- _x, tmph, epd_bg_color);
+            // }
 		} else if (ch == 0x0a) { // ==== '\n', new line ====
             _y += tmph + device->font_line_space;
             if ( _y > (device->disp_win.y2-tmph)) {
@@ -160,7 +162,8 @@ void epd_print(epd_device_t* device, const char *st, int x, int y) {
 			}
 
 			// check if character can be displayed in the current line
-			if (( _y+tmpw) > (device->disp_win.x2)) {
+			// if (( _y+tmpw) > (device->disp_win.x2)) {
+            if (( _x+tmpw) > (device->disp_win.x2)) {
 				if (device->text_wrap == 0) {
                     break;
                 }
@@ -232,7 +235,7 @@ int epd_get_string_width(epd_device_t* device, char* str) {
 	// if (font->bitmap == 2) {
     //     strWidth = ((epd_7seg_width(font)+2) * strlen(str)) - 2;	// 7-segment font
     if (font->x_size != 0) {
-        strWidth = strlen(str) * font->x_size;			// fixed width font
+        strWidth = strlen(str) * font->x_size;	// fixed width font
     } else {
 		// calculate the width of the string of proportional characters
 		char* tempStrptr = str;
@@ -245,14 +248,6 @@ int epd_get_string_width(epd_device_t* device, char* str) {
 	}
 	return strWidth;
 }
-
-// static int epd_7seg_width(epd_font_t* font) {
-// 	return (2 * (2 * font->y_size + 1)) + font->x_size;
-// }
-
-// static int epd_7seg_height(epd_font_t* font) {
-// 	return (3 * (2 * font->y_size + 1)) + (2 * font->x_size);
-// }
 
 static uint8_t epd_get_char_ptr(epd_device_t* device, uint8_t c) {
     epd_font_t* font = &device->font;
@@ -299,9 +294,9 @@ static int epd_print_proportional_char(epd_device_t* device, int x, int y) {
 	char_width = ((device->font_char.width > device->font_char.x_delta) ? device->font_char.width : device->font_char.x_delta);
 	int cx, cy;
 
-	if (!device->font_transparent) {
-        epd_fill_rect(device, x, y, char_width+1, device->font.y_size, epd_bg_color);
-    }
+	// if (!device->font_transparent) {
+        // epd_fill_rect(device, x, y, char_width+1, device->font.y_size, epd_bg_color);
+    // }
 
 	// draw Glyph
 	uint8_t mask = 0x80;
@@ -384,9 +379,9 @@ static void epd_print_char(epd_device_t* device, uint8_t c, int x, int y) {
 	// get character position in buffer
 	temp = ((c-device->font.offset)*((fz)*device->font.y_size))+4;
 
-	if (!device->font_transparent) {
-        epd_fill_rect(device, x, y, device->font.x_size, device->font.y_size, epd_bg_color);
-    }
+	// if (!device->font_transparent) {
+    //     epd_fill_rect(device, x, y, device->font.x_size, device->font.y_size, epd_bg_color);
+    // }
 
 	for (j=0; j<device->font.y_size; j++) {
 		for (k=0; k < fz; k++) {
@@ -404,86 +399,6 @@ static void epd_print_char(epd_device_t* device, uint8_t c, int x, int y) {
 		temp += (fz);
 	}
 }
-
-// static void epd_draw7seg(epd_device_t* device, int16_t x, int16_t y, int8_t num, int16_t w, int16_t l, color_t color) {
-//     /* TODO: clipping */
-//     if (num < 0x2d || num > 0x3a) {
-//         return;
-//     }
-
-//     int16_t c = font_bcd[num-0x2d];
-//     int16_t d = 2*w+l+1;
-
-//     epd_bar_vert(device, x+d, y+d, w, l, epd_bg_color, epd_bg_color);
-//     epd_bar_vert(device, x,   y+d, w, l, epd_bg_color, epd_bg_color);
-//     epd_bar_vert(device, x+d, y, w, l, epd_bg_color, epd_bg_color);
-//     epd_bar_vert(device, x,   y, w, l, epd_bg_color, epd_bg_color);
-//     epd_bar_hor(device, x, y+2*d, w, l, epd_bg_color, epd_bg_color);
-//     epd_bar_hor(device, x, y+d, w, l, epd_bg_color, epd_bg_color);
-//     epd_bar_hor(device, x, y, w, l, epd_bg_color, epd_bg_color);
-
-//     epd_fill_rect(device, x+(d/2), y+2*d, 2*w+1, 2*w+1, epd_bg_color);
-//     epd_draw_rect(device, x+(d/2), y+2*d, 2*w+1, 2*w+1, epd_bg_color);
-//     epd_fill_rect(device, x+(d/2), y+d+2*w+1, 2*w+1, l/2, epd_bg_color);
-//     epd_draw_rect(device, x+(d/2), y+d+2*w+1, 2*w+1, l/2, epd_bg_color);
-//     epd_fill_rect(device, x+(d/2), y+(2*w)+1+(l/2), 2*w+1, l/2, epd_bg_color);
-//     epd_draw_rect(device, x+(d/2), y+(2*w)+1+(l/2), 2*w+1, l/2, epd_bg_color);
-//     epd_fill_rect(device, x+2*w+1, y+d, l, 2*w+1, epd_bg_color);
-//     epd_draw_rect(device, x+2*w+1, y+d, l, 2*w+1, epd_bg_color);
-
-//     // === Draw used segments ===
-//     if (c & 0x001) {
-//         epd_bar_vert(device, x+d, y+d, w, l, color, device->font.color);	// down right
-//     }
-//     if (c & 0x002) {
-//         epd_bar_vert(device, x,   y+d, w, l, color, device->font.color);	// down left
-//     }
-//     if (c & 0x004) {
-//         epd_bar_vert(device, x+d, y, w, l, color, device->font.color);		// up right
-//     }
-//     if (c & 0x008) {
-//         epd_bar_vert(device, x,   y, w, l, color, device->font.color);		// up left
-//     }
-//     if (c & 0x010) {
-//         epd_bar_hor(device, x, y+2*d, w, l, color, device->font.color);	// down
-//     }
-//     if (c & 0x020) {
-//         epd_bar_hor(device, x, y+d, w, l, color, device->font.color);		// middle
-//     }
-//     if (c & 0x040) {
-//         epd_bar_hor(device, x, y, w, l, color, device->font.color);		// up
-//     }
-
-//     if (c & 0x080) {
-//         // low point
-//         epd_fill_rect(device, x+(d/2), y+2*d, 2*w+1, 2*w+1, color);
-//         if (device->font.offset) {
-//             epd_draw_rect(device, x+(d/2), y+2*d, 2*w+1, 2*w+1, device->font.color);
-//         }
-//     }
-//     if (c & 0x100) {
-//         // down middle point
-//         epd_fill_rect(device, x+(d/2), y+d+2*w+1, 2*w+1, l/2, color);
-//         if (device->font.offset) {
-//             epd_draw_rect(device, x+(d/2), y+d+2*w+1, 2*w+1, l/2, device->font.color);
-//         }
-//     }
-//     if (c & 0x800) {
-//         // up middle point
-//         epd_fill_rect(device, x+(d/2), y+(2*w)+1+(l/2), 2*w+1, l/2, color);
-//         if (device->font.offset) {
-//             epd_draw_rect(device, x+(d/2), y+(2*w)+1+(l/2), 2*w+1, l/2, device->font.color);
-//         }
-//     }
-//     if (c & 0x200) {
-//         // middle, minus
-//         epd_fill_rect(device, x+2*w+1, y+d, l, 2*w+1, color);
-//         if (device->font.offset) {
-//             epd_draw_rect(device, x+2*w+1, y+d, l, 2*w+1, device->font.color);
-//         }
-//     }
-// }
-
 
 static void epd_draw_rect(epd_device_t* device, uint16_t x1,uint16_t y1,uint16_t w,uint16_t h, color_t color) {
     epd_draw_fast_hline(device, x1,y1,w, color);
@@ -652,7 +567,7 @@ static void epd_draw_triangle(epd_device_t* device, uint16_t x0, uint16_t y0, ui
 	epd_draw_line(device, x2, y2, x0, y0, color);
 }
 
-static void epd_draw_line(epd_device_t* device, int16_t x0, int16_t y0, int16_t x1, int16_t y1, color_t color) {
+void epd_draw_line(epd_device_t* device, int16_t x0, int16_t y0, int16_t x1, int16_t y1, color_t color) {
     if (x0 == x1) {
         if (y0 <= y1) {
             epd_draw_fast_vline(device, x0, y0, y1-y0, color);

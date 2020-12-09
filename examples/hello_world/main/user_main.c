@@ -15,11 +15,12 @@ void app_main()
 
 	epd_init(&device);
 
-	// epd_fill_screen(&device, EPD_BLACK);
+	// epd_set_font(&device, epd_font_deja_vu_sans_24_e);
+	epd_set_font(&device, epd_font_deja_vu_sans_bold_42_e);
+	epd_print(&device, "Hello, world!", EPD_CENTER, 0);
+	// epd_print(&device, "Hello!", EPD_CENTER, 0);
 
-	epd_set_font(&device, epd_font_deja_vu_sans_24_e);
-	// epd_set_font(&device, epd_font_deja_vu_sans_bold_42_e);
-	epd_print(&device, "Hello, world!", EPD_CENTER, 5);
+	epd_draw_line(&device, 0, 100, 250, 100, 15);
 
 	epd_update(&device);
 
