@@ -84,7 +84,7 @@ void epd_init(epd_device_t* device) {
         return;
     }
 
-    device->buffer = heap_caps_malloc(EPD_BUFFER_SIZE, MALLOC_CAP_DMA);
+    device->buffer = heap_caps_malloc(EPD_BUFFER_SIZE, MALLOC_CAP_DEFAULT);
     device->text_wrap = 0;
     device->font_line_space = 0;
     // device->font_transparent = 0;
